@@ -27,7 +27,7 @@ int main(int argc, char* argv[]) {
         st[st_len] = (now_ch == EOF)? '\n' : (char) now_ch;
         st[++st_len] = '\0';
 
-        if (st[st_len-1] != '\n' && st[st_len-1] != EOF)
+        if (now_ch != '\n' && now_ch != EOF)
             continue;
 
         char res[RESPONSE_TEXT_SIZE] = "";
