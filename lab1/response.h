@@ -1,6 +1,0 @@
-#ifndef LAB1_RESPONSE_H
-#define LAB1_RESPONSE_H
-
-#define RESPONSE_TEXT_SIZE 128
-
-#endif

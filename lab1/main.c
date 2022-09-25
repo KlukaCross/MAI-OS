@@ -4,65 +4,100 @@
 #include <string.h>
 #include <fcntl.h>
 #include <errno.h>
-#include "response.h"
+#include <poll.h>
+#include "d_string.h"
 
-#define FILENAME_SIZE 256
-#define DESCRIPTOR_SIZE 2
+int loop(int pipe_out, int pipe_in) {
+    errno = 0;
+    char* st = NULL;
+    int len = 0;
+    char* end_of_string = "\n";
+    int scan_res;
+    do {
+       scan_res = scan_string(&st, &len, STDIN_FILENO);
+       if (scan_res && scan_res != EOF)
+           return errno;
 
-int handler(int pipe_out, int pipe_in, int child_id) {
-    getchar(); // fictional \n
-    while (1) {
-        int c = getchar();
-        write(pipe_out, &c, sizeof(int));
-        if (c == EOF) {
-            int status;
-            waitpid(child_id, &status, 0);
-            return status;
-        }
-        if (c == '\n') {
-            char res[RESPONSE_TEXT_SIZE];
-            read(pipe_in, &res, RESPONSE_TEXT_SIZE * sizeof(char));
-            if (strcmp(res, "OK"))
-                printf("%s\n", res);
-        }
-    }
+       if (write(pipe_out, st, len*sizeof(char)) == -1 ||
+        write(pipe_out, end_of_string, sizeof(char)) == -1)
+           return errno;
+
+       if (scan_res == EOF && len == 0)
+           break;
+
+       int poll_res = poll(&(struct pollfd){.fd=pipe_in, .events=POLLIN}, 1, 1);
+       if (poll_res == -1)
+           return errno;
+       if (poll_res == 1) {
+           char* err_st = NULL;
+           int len_st = 0;
+           if (scan_string(&err_st, &len_st, pipe_in))
+               return errno;
+           printf("%s\n", err_st);
+       }
+    } while (!scan_res);
+    return errno;
 }
 
 int main() {
     errno = 0;
     int fd1[2];
     int fd2[2];
-    char filename[FILENAME_SIZE];
-    scanf("%s", filename);
+    char* filename = NULL;
+    int filename_len = 0;
+    if (scan_string(&filename, &filename_len, STDIN_FILENO)) {
+        if (errno) {
+            perror("scan string error");
+            return errno;
+        }
+        return -1;
+    }
     int file_d = creat(filename, S_IRWXU);
-    if (file_d < 0) {
+    if (file_d < 0)
         perror("open error");
+    else if (pipe(fd1))
+        perror("pipe1 error");
+    else if (pipe(fd2))
+        perror("pipe2 error");
+    if (errno)
         return errno;
-    }
-    pipe(fd1);
-    pipe(fd2);
-    if (errno) {
-        perror("pipe error");
-        return errno;
-    }
     pid_t id = fork();
     if (id < 0) {
         perror("fork error");
         return errno;
     } else if (id == 0) {
-        char child_in[DESCRIPTOR_SIZE], child_err[DESCRIPTOR_SIZE], child_out[DESCRIPTOR_SIZE];
-        sprintf(child_in, "%d", fd1[0]);
-        sprintf(child_out, "%d", file_d);
-        sprintf(child_err, "%d", fd2[1]);
-        execl("./child.out", "./child.out", child_in, child_out, child_err, (char *) NULL);
-        perror("execl error");
+        if (dup2(fd1[0], STDIN_FILENO) == -1)
+            perror("dup2 stdin error");
+        else if (dup2(file_d, STDOUT_FILENO) == -1)
+            perror("dup2 stdout error");
+        else if (dup2(fd2[1], STDERR_FILENO) == -1)
+            perror("dup2 stderr error");
+        else if (close(fd2[0]))
+            perror("close pipe2 read error");
+        else if (close(fd1[1]))
+            perror("close pipe1 write error");
+        else {
+            execl("./child", "./child", (char *) NULL);
+            perror("execl error");
+        }
         return errno;
     }
-    int res = handler(fd1[1], fd2[0], id);
-    close(fd1[0]);
-    close(fd1[1]);
-    close(fd2[0]);
-    close(fd2[1]);
-    close(file_d);
-    return res;
+    if (close(fd2[1]))
+        perror("close pipe2 write error");
+    else if (close(fd1[0]))
+        perror("close pipe1 read error");
+    else if (close(file_d))
+        perror("close file write error");
+    else if (loop(fd1[1], fd2[0]))
+        perror("loop error");
+    else if (close(fd2[0]))
+        perror("close pipe2 read error");
+    else if (close(fd1[1]))
+        perror("close pipe1 write error");
+    else {
+        int status;
+        waitpid(id, &status, 0);
+        return status;
+    }
+    return errno;
 }

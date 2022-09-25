@@ -1,49 +1,30 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>
-#include "response.h"
-#include <stdlib.h>  // for strtol
 #include <errno.h>
-#define BUF_SIZE 2048
+#include "d_string.h"
 
 int is_upper(char ch) {
     return 'A' <= ch && ch <= 'Z';
 }
 
-int main(int argc, char* argv[]) {
+int main() {
     errno = 0;
-    int d_in = strtol(argv[1], NULL, 10);
-    int d_out = strtol(argv[2], NULL, 10);
-    int d_err = strtol(argv[3], NULL, 10);
-    int now_ch;
-    char st[BUF_SIZE] = "";
-    int st_len = 0;
-    while (1) {
-        read(d_in, &now_ch, sizeof(int));
-        if (errno) {
-            perror("read error");
-            return errno;
-        }
-        st[st_len] = (now_ch == EOF)? '\n' : (char) now_ch;
-        st[++st_len] = '\0';
-
-        if (now_ch != '\n' && now_ch != EOF)
-            continue;
-
-        char res[RESPONSE_TEXT_SIZE] = "";
-        if (!is_upper(st[0]))
-            strcpy(res, "invalid string");
-        else {
-            write(d_out, &st, sizeof(char)*st_len);
-            if (errno) {
-                perror("write error");
+    char* invalid_string = "invalid string\n";
+    char* st = NULL;
+    int len = 0;
+    while (!scan_string(&st, &len, STDIN_FILENO)) {
+        if (is_upper(st[0])) {
+            if (printf("%s\n", st) == -1) {
+                perror("printf error");
                 return errno;
             }
-            strcpy(res, "OK");
         }
-        write(d_err, &res, sizeof(char) * RESPONSE_TEXT_SIZE);
-        if (now_ch == EOF)
-            return 0;
-        st[st_len=0] = '\0';
+        else if (write(STDERR_FILENO, invalid_string,
+                         strlen(invalid_string)*sizeof(char)) == -1) {
+            perror("write error");
+            return errno;
+        }
     }
+    return errno;
 }
