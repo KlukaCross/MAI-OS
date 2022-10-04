@@ -19,6 +19,10 @@ int main() {
                 perror("printf error");
                 return errno;
             }
+            if (fflush(STDIN_FILENO) == EOF) {
+                perror("fflush error");
+                return errno;
+            }
         }
         else if (write(STDERR_FILENO, invalid_string,
                          strlen(invalid_string)*sizeof(char)) == -1) {

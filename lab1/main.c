@@ -11,7 +11,6 @@ int loop(int pipe_out, int pipe_in) {
     errno = 0;
     char* st = NULL;
     int len = 0;
-    char* end_of_string = "\n";
     int scan_res;
     do {
        scan_res = scan_string(&st, &len, STDIN_FILENO);
@@ -19,7 +18,7 @@ int loop(int pipe_out, int pipe_in) {
            return errno;
 
        if (write(pipe_out, st, len*sizeof(char)) == -1 ||
-        write(pipe_out, end_of_string, sizeof(char)) == -1)
+        write(pipe_out, "\n", sizeof(char)) == -1)
            return errno;
 
        if (scan_res == EOF && len == 0)
