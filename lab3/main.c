@@ -3,12 +3,14 @@
 #include <stdbool.h>
 #include <string.h>
 #include <pthread.h>
+#include <quadmath.h>
 #include "args_parsing.h"
 #include "constants.h"
+#include "string_utils.h"
 
 typedef struct {
     long max_memory;
-    __int128* res;
+    __float128* res;
 } NW_args;
 
 FILE *NUMBER_FILE;
@@ -52,16 +54,29 @@ int main(int argc, char* argv[]) {
 void *number_worker(void* args) {
     NW_args *nw = args;
     char *char_buf = malloc(nw->max_memory);
-    __float128 float_buf = 0;
+    int count = 0;
     while (true) {
         pthread_mutex_lock(&FILE_MUTEX);
         int read_count = fread(char_buf, sizeof(char), nw->max_memory, NUMBER_FILE);
         // обработать ситуацию, когда число прочиталось не полностью
+        int shift = read_count;
+        if (read_count == nw->max_memory && !is_separator(char_buf[nw->max_memory-1])) {
+            for (shift -= 1; shift > 0; --shift) {
+                if (is_separator(char_buf[shift])) {
+                    fseek(NUMBER_FILE, shift-read_count, );
+                    break;
+                }
+            }
+        }
         pthread_mutex_unlock(&FILE_MUTEX);
         // читаем char_buf до пробела или перевода строки, переводя HEX в float_buf (наверное лучше читать с конца)
         // затем прибавляем к среднему арифметическому nw->res float_buf
         // по формуле: res=res*(1-1/k)+float_buf/k, где k - количество складываемых чисел.
-
+        while (shift > 0) {
+            __int128 tmp = str_to_int128(char_buf, &shift);
+            *nw->res = (*nw->res)*(1-1/count)+tmp/count;
+            count++;
+        }
 
         if (read_count < nw->max_memory)
             break;
