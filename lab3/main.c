@@ -11,6 +11,7 @@
 typedef struct {
     long max_memory;
     __float128* res;
+    long* count;
 } NW_args;
 
 FILE *NUMBER_FILE;
@@ -43,42 +44,42 @@ int main(int argc, char* argv[]) {
         pthread_join(threads[i], NULL);
     }
 
-    __int128 result = 0;
+    __float128 result = 0;
+    long count = 0;
     for (int i = 0; i < MAX_THREADS; ++i) {
-        result += threads_args->res;
+        result += (*threads_args[i].res) * (*threads_args[i].count);
+        count += (*threads_args[i].count);
     }
-
+    result = result / count;
+    printf("");
     return 0;
 }
 
 void *number_worker(void* args) {
     NW_args *nw = args;
     char *char_buf = malloc(nw->max_memory);
-    int count = 0;
     while (true) {
         pthread_mutex_lock(&FILE_MUTEX);
         int read_count = fread(char_buf, sizeof(char), nw->max_memory, NUMBER_FILE);
-        // обработать ситуацию, когда число прочиталось не полностью
         int shift = read_count;
         if (read_count == nw->max_memory && !is_separator(char_buf[nw->max_memory-1])) {
             for (shift -= 1; shift > 0; --shift) {
                 if (is_separator(char_buf[shift])) {
-                    fseek(NUMBER_FILE, shift-read_count, );
+                    fseek(NUMBER_FILE, shift-read_count, SEEK_CUR);
                     break;
                 }
             }
         }
         pthread_mutex_unlock(&FILE_MUTEX);
-        // читаем char_buf до пробела или перевода строки, переводя HEX в float_buf (наверное лучше читать с конца)
-        // затем прибавляем к среднему арифметическому nw->res float_buf
-        // по формуле: res=res*(1-1/k)+float_buf/k, где k - количество складываемых чисел.
         while (shift > 0) {
-            __int128 tmp = str_to_int128(char_buf, &shift);
-            *nw->res = (*nw->res)*(1-1/count)+tmp/count;
-            count++;
+            __float128 tmp = hex_to_float128(char_buf, &shift);
+            *nw->res = (*nw->res) * (1 - 1 / (__float128)(*nw->count)) + (__float128)tmp / (*nw->count);
+            (*nw->count)++;
+            shift--;
         }
 
         if (read_count < nw->max_memory)
             break;
     }
+    return 0;
 }
