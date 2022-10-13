@@ -55,10 +55,11 @@ int main(int argc, char* argv[]) {
     long double result = 0;
     long count = 0;
     for (int i = 0; i < MAX_THREADS; ++i) {
-        result += threads_args[i].res * threads_args[i].count;
         count += threads_args[i].count;
     }
-    result = result / count;
+    for (int i = 0; i < MAX_THREADS; ++i) {
+        result += threads_args[i].res * (threads_args[i].count/(long double)count);
+    }
     printf("%Lf", result);
     return 0;
 }
