@@ -5,4 +5,6 @@
 #define DEFAULT_MAX_MEMORY 512 // in bytes
 #define MAX_128_HEX_BYTES 32
 
+#define SHOWTIME
+
 #endif //LAB3_CONSTANTS_H

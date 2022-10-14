@@ -7,6 +7,10 @@
 #include "constants.h"
 #include "string_utils.h"
 
+#ifdef SHOWTIME
+#include <time.h>
+#endif
+
 typedef struct {
     long max_memory;
     long double res;
@@ -19,6 +23,12 @@ pthread_mutex_t FILE_MUTEX = PTHREAD_MUTEX_INITIALIZER;
 void *number_worker(void* args);
 
 int main(int argc, char* argv[]) {
+
+#ifdef SHOWTIME
+    struct timespec start, end;
+    clock_gettime(CLOCK_REALTIME, &start);
+#endif
+
     char* filename = NULL;
     long MAX_THREADS = DEFAULT_MAX_THREADS;
     long MAX_MEMORY = DEFAULT_MAX_MEMORY;
@@ -32,7 +42,6 @@ int main(int argc, char* argv[]) {
         printf("file open error");
         return -1;
     }
-
 
     pthread_t threads[MAX_THREADS];
     NW_args threads_args[MAX_THREADS];
@@ -60,7 +69,13 @@ int main(int argc, char* argv[]) {
     for (int i = 0; i < MAX_THREADS; ++i) {
         result += threads_args[i].res * (threads_args[i].count/(long double)count);
     }
-    printf("%Lf", result);
+    printf("%.Lf\n", result);
+
+#ifdef SHOWTIME
+    clock_gettime(CLOCK_REALTIME, &end);
+    double time_spent = (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec) / 1000000000.0;
+    printf("The elapsed time is %f seconds\n", time_spent);
+#endif
     return 0;
 }
 
@@ -69,7 +84,7 @@ void *number_worker(void* args) {
     char *char_buf = malloc(nw->max_memory);
     while (true) {
         pthread_mutex_lock(&FILE_MUTEX);
-        int read_count = fread(char_buf, sizeof(char), nw->max_memory, NUMBER_FILE);
+        unsigned int read_count = fread(char_buf, sizeof(char), nw->max_memory, NUMBER_FILE);
         pthread_mutex_unlock(&FILE_MUTEX);
         for (int i = 0; i < read_count/(MAX_128_HEX_BYTES+1); ++i) {
             unsigned __int128 tmp = hex_to_int128(char_buf+(MAX_128_HEX_BYTES+1)*i);
