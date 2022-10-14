@@ -47,14 +47,17 @@ int main(int argc, char* argv[]) {
     NW_args threads_args[MAX_THREADS];
     long thread_memory = (MAX_MEMORY/MAX_THREADS) - ((MAX_MEMORY/MAX_THREADS) % (MAX_128_HEX_BYTES+1));
     if (thread_memory == 0) {
-        printf("Not enough memory. Increase memory or decrease the number of threads");
+        printf("Not enough memory. Increase memory or decrease the number of threads\n");
         return -1;
     }
     for (int i = 0; i < MAX_THREADS; ++i) {
         threads_args[i].max_memory = thread_memory;
         threads_args[i].res = 0;
         threads_args[i].count = 0;
-        pthread_create(&(threads[i]), NULL, number_worker, &(threads_args[i]));
+        if (pthread_create(&(threads[i]), NULL, number_worker, &(threads_args[i]))) {
+            perror("Create thread error");
+            return -1;
+        }
     }
 
     for (int i = 0; i < MAX_THREADS; ++i) {
