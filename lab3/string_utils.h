@@ -4,8 +4,6 @@
 #include <stdbool.h>
 #include "constants.h"
 
-bool is_separator(char c);
-
 unsigned __int128 hex_to_int128(char st[]);
 void int128_to_hex(unsigned __int128 number, char st[MAX_128_HEX_BYTES+1]);
 

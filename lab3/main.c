@@ -92,7 +92,8 @@ void *number_worker(void* args) {
         for (int i = 0; i < read_count/(MAX_128_HEX_BYTES+1); ++i) {
             unsigned __int128 tmp = hex_to_int128(char_buf+(MAX_128_HEX_BYTES+1)*i);
             (nw->count)++;
-            nw->res = (nw->res) * (1 - 1 / (long double)(nw->count)) + (long double)tmp / (nw->count);
+            nw->res = (nw->res) * (1 - 1 / (long double)(nw->count)) +
+                    (long double)tmp / (nw->count);
         }
 
         if (read_count < nw->max_memory)

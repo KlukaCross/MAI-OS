@@ -9,12 +9,15 @@ void print_help(char name_program[]) {
            "\t%s [OPTION] filename\n", name_program);
     printf("\t%s -h\n", name_program);
     printf("DESCRIPTION:\n"
-           "\tПрограмма читает из файла filename 128 битные числа, записанные в шестнадцатиричном виде, "
+           "\tПрограмма читает из файла filename 128 битные числа, записанные в "
+           "шестнадцатиричном виде, "
            "и считает их среднее арифметическое c округлением результата до целых.\n\n");
     printf("\t-h\tпоказывает эту справку и выходит\n");
     printf("\t-t\tмаксимальное число потоков (по умолчанию %d)\n", DEFAULT_MAX_THREADS);
-    printf("\t-m\tмаксимальное количество используемой оперативной памяти в байтах для считываемых чисел "
-           "(по умолчанию %d). Внимание! Не рекомендуется устанавливать значение меньше %d*max_threads байт.\n",
+    printf("\t-m\tмаксимальное количество используемой оперативной памяти в байтах для "
+           "считываемых чисел "
+           "(по умолчанию %d). Внимание! Не рекомендуется устанавливать значение меньше "
+           "%d*max_threads байт.\n",
            DEFAULT_MAX_MEMORY, MAX_128_HEX_BYTES+1);
 }
 
@@ -60,7 +63,8 @@ int args_parsing(int argc, char* argv[], char** filename, long* max_threads, lon
         }
 
         if (*max_memory < (MAX_128_HEX_BYTES+sizeof(__int128))*(*max_threads))
-            printf("Warning: not recommended to set max_memory less than %d*max_threads\n", MAX_128_HEX_BYTES+1);
+            printf("Warning: not recommended to set max_memory less than "
+                   "%d*max_threads\n", MAX_128_HEX_BYTES+1);
 
     } else {
         printf("Error: incorrect number of arguments\n");

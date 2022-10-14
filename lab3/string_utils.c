@@ -1,9 +1,4 @@
 #include "string_utils.h"
-#include <math.h>
-
-bool is_separator(char c) {
-    return c == ' ' || c == '\n';
-}
 
 unsigned __int128 hex_to_int(char c) {
     if (c >= '0' && c <= '9')
