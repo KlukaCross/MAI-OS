@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+#include <string.h>
 #include "string_utils.h"
 #include "constants.h"
 
@@ -29,7 +30,12 @@ int main(int argc, char* argv[]) {
         avg = avg * (1 - 1 / (long double)i) + (long double)random_number / i;
     }
 
-    printf("Generation completed. Average: %Lf\n", avg);
+    fclose(f);
+
+    char st[1024];
+    sprintf(st, "Number: %ld\nAverage: %Lf\n", number, avg);
+    f = fopen(strcat(filename, "_info"), "w");
+    fwrite(st, sizeof(char), strlen(st), f);
     fclose(f);
     return 0;
 }
