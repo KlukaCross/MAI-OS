@@ -57,6 +57,7 @@ void read_chunk(int signum) {
         strcpy(ERROR_PTR, INVALID_STRING);
         pthread_mutex_unlock(&SYNC_ST.ERROR_MUTEX);
         kill(SYNC_ST.parent_PID, PARENT_SIGNAL_CHECK);
+        LEN_READ_ST = 0;
     }
 
 }

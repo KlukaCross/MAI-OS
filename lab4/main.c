@@ -75,6 +75,11 @@ int main() {
     if ((file_errors = open(ERRORS_FILENAME, O_RDWR|O_TRUNC|O_CREAT, S_IRWXU)) == -1)
         return print_error("open file errors error");
 
+    if (ftruncate(file_messages, MESSAGES_FILESIZE) == -1)
+        return print_error("change length message file error");
+    if (ftruncate(file_errors, ERRORS_FILESIZE) == -1)
+        return print_error("change length error file error");
+
     pthread_mutexattr_t message_mutex_attr;
     pthread_mutexattr_t error_mutex_attr;
 
