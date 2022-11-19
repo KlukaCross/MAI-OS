@@ -29,7 +29,6 @@ void send_chunk(char* msg_ptr, const char* st, int l, int r, pid_t child_pid) {
         msg_ptr[i] = st[i];
     }
     pthread_mutex_unlock(&MESSAGE_MUTEX);
-
     kill(child_pid, CHILD_SIGNAL_CHECK);
     // maybe sleep()?
 }

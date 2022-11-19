@@ -43,20 +43,20 @@ void read_chunk(int signum) {
             }
         }
     }
-    if (MESSAGE_PTR[i] == '\n' && is_upper(READ_ST[0])) {
-        if (printf("%s\n", READ_ST) == -1)
-            print_error("printf error");
-        if (fflush(STDIN_FILENO) == EOF)
-            print_error("fflush error");
-        LEN_READ_ST = 0;
-    }
-    pthread_mutex_unlock(&SYNC_ST.MESSAGE_MUTEX);
-
-    if (MESSAGE_PTR[i] == '\n' && !is_upper(READ_ST[0])) {
-        pthread_mutex_lock(&SYNC_ST.ERROR_MUTEX);
-        strcpy(ERROR_PTR, INVALID_STRING);
-        pthread_mutex_unlock(&SYNC_ST.ERROR_MUTEX);
-        kill(SYNC_ST.parent_PID, PARENT_SIGNAL_CHECK);
+    if (MESSAGE_PTR[i] == '\n') {
+        READ_ST[i] = '\0';
+        pthread_mutex_unlock(&SYNC_ST.MESSAGE_MUTEX);
+        if (is_upper(READ_ST[0])) {
+            if (printf("%s\n", READ_ST) == -1)
+                print_error("printf error");
+            if (fflush(STDIN_FILENO) == EOF)
+                print_error("fflush error");
+        } else {
+            pthread_mutex_lock(&SYNC_ST.ERROR_MUTEX);
+            strcpy(ERROR_PTR, INVALID_STRING);
+            pthread_mutex_unlock(&SYNC_ST.ERROR_MUTEX);
+            kill(SYNC_ST.parent_PID, PARENT_SIGNAL_CHECK);
+        }
         LEN_READ_ST = 0;
     }
 
