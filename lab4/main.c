@@ -39,7 +39,7 @@ int loop(char* msg_ptr, pid_t child_pid) {
     int st_len = 0;
     int scan_res;
     do {
-       scan_res = scan_string(&st, &st_len, STDIN_FILENO);
+       scan_res = scan_string(&st, &st_len);
        if (scan_res && scan_res != EOF)
            return errno;
 
@@ -62,7 +62,7 @@ int main() {
     char* filename = NULL;
     int filename_len = 0;
     int file_answers, file_messages, file_errors;
-    if (scan_string(&filename, &filename_len, STDIN_FILENO)) {
+    if (scan_string(&filename, &filename_len)) {
         if (errno)
             return print_error("scan string error");
         return -1;
@@ -125,7 +125,6 @@ int main() {
         return print_error("close file answers error");
     else if (loop(msg_ptr, id))
         return print_error("loop error");
-    int status;
-    waitpid(id, &status, 0);
-    return status;
+    kill(id, SIGKILL);
+    return 0;
 }

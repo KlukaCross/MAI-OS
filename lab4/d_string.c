@@ -4,7 +4,7 @@
 #include <errno.h>
 #include <unistd.h>
 
-int scan_string(char** str, int* len, int fd) {
+int scan_string(char** str, int* len) {
     errno = 0;
     int buf_size = 1;
     int new_len = 0;
@@ -12,10 +12,9 @@ int scan_string(char** str, int* len, int fd) {
     if (new_str == NULL)
         return -1;
 
-    char c;
-    int res_read;
-    while ((res_read = read(fd, &c, sizeof(char))) > 0 && c != '\n') {
-        new_str[new_len++] = c;
+    int c;
+    while ((c = getchar()) > 0 && c != '\n') {
+        new_str[new_len++] = (char)c;
         if (new_len >= buf_size) {
             buf_size *= 2;
             new_str = realloc(new_str, buf_size*sizeof(char));
@@ -25,12 +24,12 @@ int scan_string(char** str, int* len, int fd) {
     }
 
     new_str[new_len] = '\0';
-    if (res_read == -1)
+    if (errno)
         return errno;
     free(*str);
     *str = new_str;
     *len = new_len;
-    if (res_read == 0)
+    if (c == EOF)
         return EOF;
     return 0;
 }
