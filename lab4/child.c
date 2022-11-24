@@ -7,6 +7,7 @@
 #include <sys/mman.h>
 #include <stdbool.h>
 #include <malloc.h>
+#include <stdlib.h>
 #include "sync_constants.h"
 #include "print_error.h"
 
@@ -33,7 +34,7 @@ void read_chunk(int signum) {
     pthread_mutex_lock(&SYNC_ST.MESSAGE_MUTEX);
 
     int i=0;
-    for (; MESSAGE_PTR[i] && MESSAGE_PTR[i] != '\n'; ++i) {
+    for (; MESSAGE_PTR[i] && MESSAGE_PTR[i] != '\n' && MESSAGE_PTR[i] != EOF; ++i) {
         READ_ST[LEN_READ_ST++] = MESSAGE_PTR[i];
         if (LEN_READ_ST >= MAX_READ_LEN) {
             MAX_READ_LEN *= 2;
@@ -43,9 +44,10 @@ void read_chunk(int signum) {
             }
         }
     }
-    if (MESSAGE_PTR[i] == '\n') {
+    char last = MESSAGE_PTR[i];
+    pthread_mutex_unlock(&SYNC_ST.MESSAGE_MUTEX);
+    if ((last == '\n' || last == EOF) && i != 0) {
         READ_ST[i] = '\0';
-        pthread_mutex_unlock(&SYNC_ST.MESSAGE_MUTEX);
         if (is_upper(READ_ST[0])) {
             if (printf("%s\n", READ_ST) == -1)
                 print_error("printf error");
@@ -59,6 +61,8 @@ void read_chunk(int signum) {
         }
         LEN_READ_ST = 0;
     }
+    if (last == EOF)
+        exit(0);
 
 }
 

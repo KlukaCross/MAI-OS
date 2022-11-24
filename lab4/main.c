@@ -39,20 +39,17 @@ int loop(char* msg_ptr, pid_t child_pid) {
     int st_len = 0;
     int scan_res;
     do {
-       scan_res = scan_string(&st, &st_len);
-       if (scan_res && scan_res != EOF)
-           return errno;
+        scan_res = scan_string(&st, &st_len);
+        if (scan_res && scan_res != EOF)
+            return errno;
 
-       st[st_len] = '\n';
-       for (int j=0; j < (st_len+MESSAGES_FILESIZE)/MESSAGES_FILESIZE; ++j) {
-           int to = (j+1)*MESSAGES_FILESIZE > st_len? st_len : (j+1)*MESSAGES_FILESIZE;
-           send_chunk(msg_ptr, st, j*MESSAGES_FILESIZE, to, child_pid);
-       }
+        st[st_len] = (scan_res == EOF)? EOF : '\n';
+        for (int j=0; j < (st_len+MESSAGES_FILESIZE)/MESSAGES_FILESIZE; ++j) {
+            int to = (j+1)*MESSAGES_FILESIZE > st_len? st_len : (j+1)*MESSAGES_FILESIZE;
+            send_chunk(msg_ptr, st, j*MESSAGES_FILESIZE, to, child_pid);
+        }
 
-       if (scan_res == EOF && st_len == 0)
-           break;
-
-    } while (!scan_res);
+    } while (scan_res != EOF);
     return errno;
 }
 
@@ -125,6 +122,11 @@ int main() {
         return print_error("close file answers error");
     else if (loop(msg_ptr, id))
         return print_error("loop error");
-    kill(id, SIGKILL);
-    return 0;
+    else if (munmap(msg_ptr, MESSAGES_FILESIZE*sizeof(char)) == -1)
+        return print_error("message munmap error");
+    else if (munmap(ERROR_PTR, ERRORS_FILESIZE*sizeof(char)) == -1)
+        return print_error("errors munmap error");
+    int status;
+    waitpid(id, &status, 0);
+    return status;
 }
