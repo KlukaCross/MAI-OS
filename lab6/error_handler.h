@@ -3,5 +3,7 @@
 #include <stdbool.h>
 
 void error_handler(bool res);
+bool is_ok(char* message);
+bool parent_not_found(char* message);
 
 #endif //LAB6_ERROR_HANDLER_H

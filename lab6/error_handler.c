@@ -12,3 +12,7 @@ void error_handler(bool res) {
     printf("unknown error\n");
     exit(-1);
 }
+
+bool is_ok(char* message) {
+    return !strncmp(message, "OK", 2);
+}
