@@ -16,3 +16,11 @@ void error_handler(bool res) {
 bool is_ok(char* message) {
     return !strncmp(message, "OK", 2);
 }
+
+bool parent_not_found(char* message) {
+    return !strcmp(message, "Error: Parent not found");
+}
+
+bool node_not_found(char* message) {
+    return !strcmp(message, "Error: Node not found");
+}

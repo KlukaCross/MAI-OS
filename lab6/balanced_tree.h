@@ -6,6 +6,8 @@
 typedef struct {
     char* id;
     int pid;
+    char* main_address;
+    char* ping_address;
     bool is_available;
 } b_tree_node;
 
@@ -20,10 +22,12 @@ void btree_destroy(b_tree *t);
 
 bool btree_add(b_tree *t, b_tree_node elem);
 b_tree_node btree_last_elem_parent(b_tree *t);
+b_tree_node btree_last_elem(b_tree *t);
 
 b_tree_node btree_remove(b_tree *t, const char* elem_id); // return node that will stand in place of the one being deleted
 
 b_tree_node btree_find(b_tree *t, const char* elem_id);
+b_tree_node btree_get_parent(b_tree *t, const char* elem_id);
 b_tree_node btree_get_left(b_tree *t, const char* elem_id);
 b_tree_node btree_get_right(b_tree *t, const char* elem_id);
 
