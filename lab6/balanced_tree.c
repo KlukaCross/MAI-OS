@@ -47,6 +47,10 @@ b_tree_node btree_last_elem_parent(b_tree *t) {
     return t->buf[(t->size-2)/2];
 }
 
+b_tree_node btree_last_elem(b_tree *t) {
+    return t->buf[t->size-1];
+}
+
 b_tree_node btree_remove(b_tree *t, const char* elem_id) {
     b_tree_node r_elem = t->buf[t->size-1];
 
@@ -57,6 +61,7 @@ b_tree_node btree_remove(b_tree *t, const char* elem_id) {
         }
     }
 
+    t->size--;
     return r_elem;
 }
 
@@ -65,6 +70,19 @@ b_tree_node btree_find(b_tree *t, const char* elem_id) {
     for (int i = 0; i < t->size; ++i) {
         if (t->buf[i].id == elem_id) {
             res = t->buf[i];
+            break;
+        }
+    }
+    return res;
+}
+
+b_tree_node btree_get_parent(b_tree *t, const char* elem_id) {
+    b_tree_node res = {"-1", -1, false};
+    for (int i = 0; i < t->size; ++i) {
+        if (t->buf[i].id == elem_id) {
+            if (i == 0)
+                return res;
+            res = t->buf[(i-1)/2];
             break;
         }
     }
