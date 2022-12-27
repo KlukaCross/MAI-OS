@@ -34,7 +34,7 @@ int main (void)
     btree_add(&TREE, C_NODE);
 
     address_shift = 0;
-    char* main_address = gen_address(&address_shift);
+    char* main_address = gen_address();
 
     error_handler(mqn_init(&CONTROL_NODE));
     error_handler(mqn_bind(&CONTROL_NODE, main_address));
@@ -88,21 +88,19 @@ void cmd_create(char* message) {
         btree_add(&TREE, node);
         b_tree_node new_node_parent = btree_last_elem_parent(&TREE);
         if (!strcmp(new_node_parent.id, C_NODE.id)) { // если родитель нового узла - это управляющий
-            if (!mqn_connect(&CONTROL_NODE, main_address, ping_address))
+            if (!mqn_connect(&CONTROL_NODE, node_id, main_address, ping_address))
                 printf("Create node error\n");
         }
         else {
             char push_message[strlen("create")+strlen(node_id)+
             strlen(new_node_parent.id)+strlen(main_address)+strlen(ping_address)+5];
             sprintf(push_message, "create %s %s %s %s", node_id, new_node_parent.id, main_address, ping_address);
-            char *answer = mqn_left_push(&CONTROL_NODE, push_message);
-            if (parent_not_found(answer)) // если не нашли родителя в левом поддереве, ищем в правом
-                answer = mqn_right_push(&CONTROL_NODE, push_message);
+            char* answer = mqn_all_push(&CONTROL_NODE, push_message);
             if (!is_ok(push_message)) { // если ошибка, то удаляем новый узел
                 btree_remove(&TREE, node_id);
                 kill(pid, SIGKILL);
             }
-            if (parent_not_found(answer)) // если не нашли (либо просто не связались) родителя в правом поддерере
+            if (node_not_found(answer)) // если не связались с родителем или не нашли его в правом поддерере
                 printf("Error: failed to create node because parent %s is unavailable\n", new_node_parent.id);
             else
                 printf("%s\n", answer);
@@ -154,9 +152,7 @@ void cmd_remove(char* message) {
 
     char push_message[strlen("remove")+strlen(node_id)+2];
     sprintf(push_message, "remove %s", node_id);
-    char *answer = mqn_left_push(&CONTROL_NODE, push_message);
-    if (parent_not_found(answer)) // если не нашли узел в левом поддереве, ищем в правом
-        answer = mqn_right_push(&CONTROL_NODE, push_message);
+    char *answer = mqn_all_push(&CONTROL_NODE, push_message);
     if (!is_ok(push_message)) { // если ошибка, то не удаляем новый узел и подключаем обратно последний узел
         printf("%s\n", answer);
         b_tree_node last_node_parent = btree_last_elem_parent(&TREE);
@@ -203,7 +199,7 @@ bool connect(char* node_id, char* main_address, char* ping_address) {
     char push_message[strlen("connect")+strlen(node_id)+strlen(main_address)+strlen(ping_address)+4];
     sprintf(push_message, "connect %s %s %s", node_id, main_address, ping_address);
     char *answer = mqn_left_push(&CONTROL_NODE, push_message);
-    if (parent_not_found(answer)) // если не нашли узел в левом поддереве, ищем в правом
+    if (node_not_found(answer)) // если не нашли узел в левом поддереве, ищем в правом
         answer = mqn_right_push(&CONTROL_NODE, push_message);
     return is_ok(answer);
 }

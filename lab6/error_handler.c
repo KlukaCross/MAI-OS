@@ -17,10 +17,6 @@ bool is_ok(char* message) {
     return !strncmp(message, "OK", 2);
 }
 
-bool parent_not_found(char* message) {
-    return !strcmp(message, "Error: Parent not found");
-}
-
 bool node_not_found(char* message) {
-    return !strcmp(message, "Error: Node not found");
+    return !strcmp(message, ERROR_NODE_NOT_FOUND);
 }
