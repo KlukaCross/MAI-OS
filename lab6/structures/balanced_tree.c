@@ -51,7 +51,7 @@ b_tree_node btree_last_elem(b_tree *t) {
     return t->buf[t->size-1];
 }
 
-b_tree_node btree_remove(b_tree *t, const char* elem_id) {
+b_tree_node btree_remove(b_tree *t, int elem_id) {
     b_tree_node r_elem = t->buf[t->size-1];
 
     for (int i = 0; i < t->size; ++i) {
@@ -65,8 +65,8 @@ b_tree_node btree_remove(b_tree *t, const char* elem_id) {
     return r_elem;
 }
 
-b_tree_node btree_find(b_tree *t, const char* elem_id) {
-    b_tree_node res = {"-1", -1, false};
+b_tree_node btree_find(b_tree *t, int elem_id) {
+    b_tree_node res = {-1, -1, false};
     for (int i = 0; i < t->size; ++i) {
         if (t->buf[i].id == elem_id) {
             res = t->buf[i];
@@ -76,8 +76,8 @@ b_tree_node btree_find(b_tree *t, const char* elem_id) {
     return res;
 }
 
-b_tree_node btree_get_parent(b_tree *t, const char* elem_id) {
-    b_tree_node res = {"-1", -1, false};
+b_tree_node btree_get_parent(b_tree *t, int elem_id) {
+    b_tree_node res = {-1, -1, false};
     for (int i = 0; i < t->size; ++i) {
         if (t->buf[i].id == elem_id) {
             if (i == 0)
@@ -89,8 +89,8 @@ b_tree_node btree_get_parent(b_tree *t, const char* elem_id) {
     return res;
 }
 
-b_tree_node btree_get_left(b_tree *t, const char* elem_id) {
-    b_tree_node res = {"-1", -1, false};
+b_tree_node btree_get_left(b_tree *t, int elem_id) {
+    b_tree_node res = {-1, -1, false};
     for (int i = 0; i < t->size; ++i) {
         if (t->buf[i].id == elem_id) {
             if (2*i+1 > t->size)
@@ -101,8 +101,8 @@ b_tree_node btree_get_left(b_tree *t, const char* elem_id) {
     }
     return res;
 }
-b_tree_node btree_get_right(b_tree *t, const char* elem_id) {
-    b_tree_node res = {"-1", -1, false};
+b_tree_node btree_get_right(b_tree *t, int elem_id) {
+    b_tree_node res = {-1, -1, false};
     for (int i = 0; i < t->size; ++i) {
         if (t->buf[i].id == elem_id) {
             if (2*i+2 > t->size)
