@@ -16,14 +16,14 @@ typedef struct {
     void* right_child_ping_socket;
 } mq_node;
 
-bool mqn_init(mq_node *m);
-bool mqn_bind(mq_node *m, char* main_address, char* ping_address);
-bool mqn_connect(mq_node *m, int node_id, char* address, char* ping_address);
+void mqn_init(mq_node *m);
+void mqn_bind(mq_node *m, char* main_address, char* ping_address);
+void mqn_connect(mq_node *m, int node_id, char* address, char* ping_address);
 
 int mqn_receive(void* socket, char* message[]);
-bool mqn_push(void* socket, const char* message[]);
-bool mqn_push_all(mq_node *m, const char* message[]);
-bool mqn_reply(mq_node *m, const char* message[]);
+void mqn_push(void* socket, char* message[]);
+void mqn_push_all(mq_node *m, char* message[]);
+void mqn_reply(mq_node *m, char* message[]);
 
 void mqn_close(mq_node *m, int node_id);
 void mqn_destroy(mq_node *m);

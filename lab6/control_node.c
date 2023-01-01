@@ -13,6 +13,8 @@
 #include "hashmap/include//hashmap.h"
 #include "structures/rm_list.h"
 
+#define MILLISECONDS_SLEEP 200
+
 void print_help() {
     printf("USAGE:\n"
            "\tcreate ID - create node with id=ID\n"
@@ -24,7 +26,7 @@ void print_help() {
 
 void gen_address(char rep_address[32], char req_address[32]);
 void gen_uuid(char uuid[16]);
-void answer_count_push(char *uuid);
+void answer_count_push(const char *uuid);
 
 void cmd_create(int id); // create id
 void cmd_remove(int id); // remove id
@@ -54,8 +56,10 @@ b_tree_node C_NODE;
 
 int heartbeat_time = 0;
 
-HASHMAP(char*, int) answer_count_map;
+HASHMAP(char, int) answer_count_map;
 rm_list remove_list;
+
+const struct timespec *SLEEP_TIME = {0, MILLISECONDS_SLEEP*1000000L}; // sec nanosec
 
 int main (void)
 {
@@ -71,8 +75,8 @@ int main (void)
     gen_address(main_address, NULL);
     char ping_address[32] = "";
     gen_address(ping_address, NULL);
-    error_handler_zmq(mqn_init(&CONTROL_NODE));
-    error_handler_zmq(mqn_bind(&CONTROL_NODE, main_address, ping_address));
+    mqn_init(&CONTROL_NODE);
+    mqn_bind(&CONTROL_NODE, main_address, ping_address);
 
     pthread_t receive_thread;
     pthread_t heartbeat_thread;
@@ -132,8 +136,10 @@ void gen_uuid(char uuid[37]) {
     uuid_unparse(uu, uuid);
 }
 
-void answer_count_push(char *uuid) {
-    hashmap_put(&answer_count_map, uuid, (TREE.size-1)/2);
+void answer_count_push(const char *uuid) {
+    int* val = malloc(sizeof(int));
+    *val = (TREE.size+1)/2;
+    hashmap_put(&answer_count_map, uuid, val);
 }
 
 void cmd_create(int id) {
@@ -210,10 +216,10 @@ void cmd_exec(bool is_set, int id, char* name, int value) {
         char str_value[12];
         sprintf(str_value, "%d", value);
         char* push_message[6] = {uuid, "exec", str_id, name, str_value, NULL};
-        error_handler_zmq(mqn_push_all(&CONTROL_NODE, (const char **) push_message));
+        mqn_push_all(&CONTROL_NODE, push_message);
     } else {
         char* push_message[5] = {uuid, "exec", str_id, name, NULL};
-        error_handler_zmq(mqn_push_all(&CONTROL_NODE, (const char **) push_message));
+        mqn_push_all(&CONTROL_NODE, push_message);
     }
     answer_count_push(uuid);
 }
@@ -362,7 +368,7 @@ void rec_disconnect(int id, int code, char* answer, int count_answers) {
 
 void push_create(int id, int parent_id, char* main_address, char* ping_address) {
     if (parent_id == C_NODE.id) {
-        error_handler_zmq(mqn_connect(&CONTROL_NODE, id, main_address, ping_address));
+        mqn_connect(&CONTROL_NODE, id, main_address, ping_address);
         rec_create(id, CODE_OK, "OK", 0);
         return;
     }
@@ -373,13 +379,13 @@ void push_create(int id, int parent_id, char* main_address, char* ping_address) 
     sprintf(str_parent_id, "%d", parent_id);
     sprintf(str_rep_id, "%d", id);
     char* push_message[7] = {uuid, "create", str_rep_id, str_parent_id, main_address, ping_address, NULL};
-    error_handler_zmq(mqn_push_all(&CONTROL_NODE, (const char **) push_message));
+    mqn_push_all(&CONTROL_NODE, push_message);
     answer_count_push(uuid);
 }
 
 void push_connect(int id, int parent_id, char* main_address, char* ping_address) {
     if (parent_id == C_NODE.id) {
-        error_handler_zmq(mqn_connect(&CONTROL_NODE, id, main_address, ping_address));
+        mqn_connect(&CONTROL_NODE, id, main_address, ping_address);
         rec_connect(id, CODE_OK, "OK", 0);
         return;
     }
@@ -390,7 +396,7 @@ void push_connect(int id, int parent_id, char* main_address, char* ping_address)
     sprintf(str_parent_id, "%d", parent_id);
     sprintf(str_rep_id, "%d", id);
     char* push_message[7] = {uuid, "connect", str_rep_id, str_parent_id, main_address, ping_address, NULL};
-    error_handler_zmq(mqn_push_all(&CONTROL_NODE, (const char **) push_message));
+    mqn_push_all(&CONTROL_NODE, push_message);
     answer_count_push(uuid);
 }
 void push_disconnect(int id) {
@@ -404,7 +410,7 @@ void push_disconnect(int id) {
     char str_id[12];
     sprintf(str_id, "%d", id);
     char* push_message[4] = {uuid, "disconnect", str_id, NULL};
-    error_handler_zmq(mqn_push_all(&CONTROL_NODE, (const char **) push_message));
+    mqn_push_all(&CONTROL_NODE, push_message);
     answer_count_push(uuid);
 }
 void push_ping(int id) {
@@ -417,7 +423,7 @@ void push_ping(int id) {
     gen_uuid(uuid);
     sprintf(str_id, "%d", id);
     char* push_message[4] = {uuid, "ping", str_id, NULL};
-    error_handler_zmq(mqn_push_all(&CONTROL_NODE, (const char **) push_message));
+    mqn_push_all(&CONTROL_NODE, push_message);
     answer_count_push(uuid);
 }
 void push_remove(int id) {
@@ -427,7 +433,7 @@ void push_remove(int id) {
     sprintf(str_id, "%d", id);
     sprintf(str_id, "%d", id);
     char* push_message[4] = {uuid, "remove", str_id, NULL};
-    error_handler_zmq(mqn_push_all(&CONTROL_NODE, (const char **) push_message));
+    mqn_push_all(&CONTROL_NODE, push_message);
     answer_count_push(uuid);
 }
 
@@ -461,7 +467,7 @@ void receive_process(char* message[]) {
 }
 
 void *receive_worker(void* args) {
-    char* message[5];
+    char* message[5] = {NULL, NULL, NULL, NULL, NULL};
     while (true) {
         while (CONTROL_NODE.left_child_main_socket) {
             int size = mqn_receive(CONTROL_NODE.left_child_main_socket, message);
@@ -477,49 +483,57 @@ void *receive_worker(void* args) {
             else
                 break;
         }
+        nanosleep(SLEEP_TIME, NULL);
     }
 }
 
 void *heartbeat_worker(void* args) {
-    HASHMAP(char*, int) nodes_map;
+    HASHMAP(char, int) nodes_map;
     hashmap_init(&nodes_map, hashmap_hash_string, strcmp);
     clock_t start = clock();
     while (heartbeat_time > 0) {
         for (int i = 0; i < TREE.size; ++i) {
             char str_id[12];
             sprintf(str_id, "%d", TREE.buf[i].id);
-            if (!hashmap_get(&nodes_map, str_id))
-                hashmap_put(&nodes_map, str_id, 0);
-        }
-        char* map_key;
-        int map_data;
-        hashmap_foreach(map_key, map_data, &nodes_map) {
-            hashmap_put(&nodes_map, map_key, map_data+1);
+            int* val = hashmap_get(&nodes_map, str_id);
+            if (val == NULL) {
+                val = malloc(sizeof(int));
+                *val = 0;
+                hashmap_put(&nodes_map, str_id, val);
+            } else
+                *val = 0;
         }
         char* push_msg[2] = {"ping", NULL};
-        if (CONTROL_NODE.left_child_ping_socket) mqn_push(CONTROL_NODE.left_child_ping_socket, (const char **) push_msg);
-        if (CONTROL_NODE.right_child_ping_socket) mqn_push(CONTROL_NODE.right_child_ping_socket,
-                                                           (const char **) push_msg);
-        char* rec_msg[2]; // pong node_id
+        if (CONTROL_NODE.left_child_ping_socket) mqn_push(CONTROL_NODE.left_child_ping_socket, push_msg);
+        if (CONTROL_NODE.right_child_ping_socket) mqn_push(CONTROL_NODE.right_child_ping_socket,push_msg);
+        char* rec_msg[2] = {NULL, NULL}; // pong node_id
         while (clock() - start < heartbeat_time) {
             while (CONTROL_NODE.left_child_ping_socket) {
                 int size = mqn_receive(CONTROL_NODE.left_child_ping_socket, rec_msg);
-                if (size > 0 && !strcmp(rec_msg[0], "pong"))
-                    hashmap_put(&nodes_map, rec_msg[1], 0);
+                if (size > 0 && !strcmp(rec_msg[0], "pong")) {
+                    int *val = hashmap_get(&nodes_map, rec_msg[1]);
+                    if (val)
+                        *val = 0;
+                }
                 else
                     break;
             }
             while (CONTROL_NODE.right_child_ping_socket) {
                 int size = mqn_receive(CONTROL_NODE.right_child_ping_socket, rec_msg);
-                if (size > 0 && !strcmp(rec_msg[0], "pong"))
-                    hashmap_put(&nodes_map, rec_msg[1], 0);
+                if (size > 0 && !strcmp(rec_msg[0], "pong")) {
+                    int *val = hashmap_get(&nodes_map, rec_msg[1]);
+                    if (val)
+                        *val = 0;
+                }
                 else
                     break;
             }
-            // nanosleep()
+            nanosleep(SLEEP_TIME, NULL);
         }
+        const char *map_key;
+        int *map_data;
         hashmap_foreach(map_key, map_data, &nodes_map) {
-            if (map_data == 4)
+            if (*map_data == 4)
                 printf("Heartbeat: node %s is unavailable now\n", map_key);
         }
     }
