@@ -236,7 +236,7 @@ void cmd_exec(char* message[], int size_message) {
             k[strlen(name)] = '\0';
             int res = hashmap_put(&CHI_MAP, k, int_value);
             if (res) {
-                char* answer = (res == -EEXIST)? "already exists" : "unknown error";
+                char* answer = (res == -EEXIST)? "Already exists" : "Unknown error";
                 code = int_to_str(CODE_ERROR_CUSTOM);
                 char* mes[6] = {uuid, command, node_id, code, answer, NULL};
                 mqn_reply(&COMPUTE_NODE, mes);

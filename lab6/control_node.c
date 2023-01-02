@@ -26,7 +26,8 @@ void print_help() {
            "\tremove ID - remove node with id=ID\n"
            "\texec ID NAME [VALUE] - get value or set VALUE by the key NAME\n"
            "\theartbeat TIME - each node begins to report once every TIME milliseconds that it is operational. If "
-           "there is no signal from the node for 4*TIME milliseconds, then a line about the node's unavailability is displayed\n");
+           "there is no signal from the node for 4*TIME milliseconds, then a line about the node's unavailability is displayed. "
+           "If TIME=0 then heartbeat is disabled\n");
 }
 
 void gen_address(char* rep_address, char* req_address);
@@ -128,7 +129,7 @@ int main (void)
         cmd[0] = '\0';
     }
     free(arg2);
-    for (int i = 0; i < TREE.size; ++i) {
+    for (int i = 1; i < TREE.size; ++i) {
         kill(TREE.buf[i].pid, SIGKILL);
         waitpid(TREE.buf[i].pid, NULL, 0);
     }
@@ -151,7 +152,6 @@ void gen_address(char *rep_address, char *req_address) {
 char* gen_uuid() {
     char *uuid = malloc(sizeof(char)*37);
     assert(uuid != NULL);
-    //uuid[0] = '\0';
     uuid_t uu;
     uuid_generate_random(uu);
     uuid_unparse(uu, uuid);

@@ -3,6 +3,7 @@
 #include <assert.h>
 #include <stdlib.h>
 
+//#define DEBUG
 
 void mqn_init(mq_node *m) {
     assert((m->context = zmq_ctx_new()));
