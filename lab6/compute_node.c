@@ -1,10 +1,8 @@
 #include <zmq.h>
 #include <string.h>
 #include <stdio.h>
-#include <unistd.h>
 #include <stdlib.h>
 #include <time.h>
-#include <assert.h>
 #include "structures/mq_node.h"
 #include "errors/error_handler.h"
 #include "hashmap/include/hashmap.h"
@@ -12,7 +10,7 @@
 #define MILLISECONDS_SLEEP 50
 #define SECONDS_SLEEP 0
 
-//#define DEBUG
+#define DEBUG
 
 void cmd_connect(char* message[], int size_message); // connect node_id parent_id main_address ping_address
 void cmd_remove(char* message[], int size_message); // remove node_id
@@ -47,19 +45,12 @@ int main(int argc, char** argv){
 
     mqn_init(&COMPUTE_NODE);
     mqn_bind(&COMPUTE_NODE, main_address, ping_address);
-#ifdef DEBUG
-    printf("node %s with main_address=%s and ping_address=%s is ready\n", NODE_ID, main_address, ping_address);
-#endif
     char* buffer[7] = {NULL, NULL, NULL, NULL, NULL, NULL, NULL};
     int size;
     while (1) {
         size = mqn_receive(COMPUTE_NODE.main_socket, buffer);
         if (size > 0) {
             char* command = buffer[1];
-#ifdef DEBUG
-            printf("node %s receive command %s from parent\n", NODE_ID, command);
-            fflush(stdout);
-#endif
             if (!strncmp(command, "exec", 4))
                 cmd_exec(buffer, size);
             else if (!strncmp(command, "ping", 4))
@@ -74,33 +65,13 @@ int main(int argc, char** argv){
         }
         size = mqn_receive(COMPUTE_NODE.left_child_main_socket, buffer);
         if (size > 0) {
-#ifdef DEBUG
-            printf("node %s receive command %s %s from node %d\n", NODE_ID, reply_buffer[1], reply_buffer[2], COMPUTE_NODE.left_child_id);
-            if (reply_buffer[5])
-                printf("ERROR in node %s: last element of reply_buffer must be NULL\n", NODE_ID);
-            fflush(stdout);
-#endif
             mqn_reply(&COMPUTE_NODE, buffer);
             clean_buffer(buffer);
-#ifdef DEBUG
-            printf("node %s reply %s for command %s\n", NODE_ID, reply_buffer[4], reply_buffer[1]);
-            fflush(stdout);
-#endif
         }
         size = mqn_receive(COMPUTE_NODE.right_child_main_socket, buffer);
         if (size > 0) {
-#ifdef DEBUG
-            printf("node %s receive command %s from node %d\n", NODE_ID, reply_buffer[1], COMPUTE_NODE.right_child_id);
-            if (reply_buffer[5])
-                printf("ERROR in node %s: last element of reply_buffer must be NULL\n", NODE_ID);
-            fflush(stdout);
-#endif
             mqn_reply(&COMPUTE_NODE, buffer);
             clean_buffer(buffer);
-#ifdef DEBUG
-            printf("node %s reply %s for command %s\n", NODE_ID, reply_buffer[4], reply_buffer[1]);
-            fflush(stdout);
-#endif
         }
         size = mqn_receive(COMPUTE_NODE.ping_socket, buffer);
         if (size > 0) {
@@ -134,10 +105,6 @@ char* int_to_str(int a) {
 void reply_not_found(char* uuid, char* command, char* node_id) {
     char *code = int_to_str(CODE_ERROR_NOT_FOUND);
     char* mes[6] = {uuid, command, node_id, code, ERROR_NOT_FOUND, NULL};
-#ifdef DEBUG
-    printf("node %s reply NOT FOUND for command %s\n", NODE_ID, command);
-    fflush(stdout);
-#endif
     mqn_reply(&COMPUTE_NODE, mes);
     free(code);
 }
@@ -145,10 +112,6 @@ void reply_not_found(char* uuid, char* command, char* node_id) {
 void reply_ok(char* uuid, char* command, char* node_id) {
     char *code = int_to_str(CODE_OK);
     char* mes[6] = {uuid, command, node_id, code, "OK", NULL};
-#ifdef DEBUG
-    printf("node %s reply OK for command %s\n", NODE_ID, command);
-    fflush(stdout);
-#endif
     mqn_reply(&COMPUTE_NODE, mes);
     free(code);
 }
@@ -156,10 +119,6 @@ void reply_ok(char* uuid, char* command, char* node_id) {
 void push_next(char* message[]) {
     if (COMPUTE_NODE.left_child_main_socket || COMPUTE_NODE.right_child_main_socket) {
         mqn_push_all(&COMPUTE_NODE, message);
-#ifdef DEBUG
-        printf("node %s push command %s to children (left child id = %d)(right child id = %d)\n", NODE_ID, message[1], COMPUTE_NODE.left_child_id, COMPUTE_NODE.right_child_id);
-        fflush(stdout);
-#endif
     }
     else
         reply_not_found(message[0], message[1], message[2]);
@@ -177,9 +136,6 @@ void cmd_connect(char* message[], int size_message) {
     else if (!strcmp(NODE_ID, parent_id)) { // это родитель узла
         int int_id = strtol(node_id, NULL, 10);
         mqn_connect(&COMPUTE_NODE, int_id, node_main_address, node_ping_address);
-#ifdef DEBUG
-        printf("node %s connected node %s. \tLeft node: %d\t Right node %d\n", NODE_ID, node_id, COMPUTE_NODE.left_child_id, COMPUTE_NODE.right_child_id);
-#endif
         reply_ok(uuid, command, node_id);
     }
 }
@@ -189,15 +145,7 @@ void cmd_remove(char* message[], int size_message) {
     char *node_id = message[2];
     if (!strcmp(node_id, NODE_ID)) { // это удаляемый узел
         reply_ok(uuid, command, node_id);
-#ifdef DEBUG
-        printf("node %s is being destroyed...\n", NODE_ID);
-        fflush(stdout);
-#endif
         mqn_destroy(&COMPUTE_NODE);
-#ifdef DEBUG
-        printf("node %s was destroyed\n", NODE_ID);
-        fflush(stdout);
-#endif
         exit(0);
     } else  // отправляем команду дальше по дереву
         push_next(message);

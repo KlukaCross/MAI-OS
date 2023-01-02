@@ -7,7 +7,6 @@
 #include <signal.h>
 #include <uuid/uuid.h>
 #include <time.h>
-#include <assert.h>
 #include <wait.h>
 #include "structures/balanced_tree.h"
 #include "structures/mq_node.h"
@@ -17,8 +16,6 @@
 
 #define MILLISECONDS_SLEEP 50
 #define SECONDS_SLEEP 0
-
-//#define DEBUG
 
 void print_help() {
     printf("USAGE:\n"
@@ -151,7 +148,6 @@ void gen_address(char *rep_address, char *req_address) {
 
 char* gen_uuid() {
     char *uuid = malloc(sizeof(char)*37);
-    assert(uuid != NULL);
     uuid_t uu;
     uuid_generate_random(uu);
     uuid_unparse(uu, uuid);
@@ -159,7 +155,6 @@ char* gen_uuid() {
 }
 char* int_to_str(int a) {
     char* res = malloc(sizeof(char)*12);
-    assert(res != NULL);
     sprintf(res, "%d", a);
     return res;
 }
@@ -168,7 +163,6 @@ char* str_copy(char *s) {
         return NULL;
     int len_s = strlen(s);
     char* res = malloc((len_s+1)*sizeof(char));
-    assert(res != NULL);
     memcpy(res, s, len_s*sizeof(char));
     res[len_s] = '\0';
     return res;
@@ -180,7 +174,7 @@ void answer_count_push(char *uuid) {
     memcpy(key, uuid, strlen(uuid));
     key[strlen(uuid)] = '\0';
     *val = (TREE.size+1)/2;
-    assert(hashmap_put(&answer_count_map, key, val) == 0);
+    hashmap_put(&answer_count_map, key, val);
 }
 
 void cmd_create(int id) {
@@ -400,10 +394,6 @@ void rec_exec(int id, int code, char* answer, int count_answers) {
 void push_create(int id, int parent_id, char* main_address, char* ping_address) {
     if (parent_id == C_NODE.id) {
         mqn_connect(&CONTROL_NODE, id, main_address, ping_address);
-#ifdef DEBUG
-        printf("control_node reply OK for command create\n");
-        fflush(stdout);
-#endif
         rec_create(id, CODE_OK, "OK", 0);
         return;
     }
@@ -436,10 +426,6 @@ void push_next_remove(remove_struct rms) { // отправляет следую�
         if (CONTROL_NODE.left_child_id == node_id || CONTROL_NODE.right_child_id == node_id) {
             mqn_close(&CONTROL_NODE, node_id);
             rec_remove(cmd, node_id, CODE_OK, "OK", 0);
-#ifdef DEBUG
-            printf("control_node reply OK for command disconnect\n");
-            fflush(stdout);
-#endif
             return;
         }
         push_message[2] = rms.commands[str_it+1];
@@ -449,10 +435,6 @@ void push_next_remove(remove_struct rms) { // отправляет следую�
         if (strtol(parent_id, NULL, 10) == C_NODE.id) {
             mqn_connect(&CONTROL_NODE, node_id, rms.commands[str_it+3], rms.commands[str_it+4]);
             rec_remove(cmd, node_id, CODE_OK, "OK", 0);
-#ifdef DEBUG
-            printf("control_node reply OK for command connect\n");
-            fflush(stdout);
-#endif
             return;
         }
         push_message[2] = rms.commands[str_it+1];
@@ -463,10 +445,6 @@ void push_next_remove(remove_struct rms) { // отправляет следую�
         char* ping_id = rms.commands[str_it+1];
         if (C_NODE.id == strtol(ping_id, NULL, 10)) {
             rec_remove(cmd, C_NODE.id, CODE_OK, "OK", 0);
-#ifdef DEBUG
-            printf("control_node reply OK for command ping\n");
-            fflush(stdout);
-#endif
             return;
         }
         push_message[2] = ping_id;
