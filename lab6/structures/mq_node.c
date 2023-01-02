@@ -131,8 +131,6 @@ void mqn_destroy(mq_node *m) {
     assert(zmq_close(m->main_socket) == 0);
     assert(zmq_close(m->ping_socket) == 0);
     assert(zmq_ctx_destroy (m->context) == 0);
-    free(m->main_socket);
-    free(m->ping_socket);
     m->main_socket = NULL;
     m->ping_socket = NULL;
     m->context = NULL;

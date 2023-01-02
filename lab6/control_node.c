@@ -15,8 +15,10 @@
 #include "hashmap/include//hashmap.h"
 #include "structures/rm_list.h"
 
-#define MILLISECONDS_SLEEP 100
+#define MILLISECONDS_SLEEP 50
 #define SECONDS_SLEEP 0
+
+//#define DEBUG
 
 void print_help() {
     printf("USAGE:\n"
@@ -56,6 +58,7 @@ b_tree_node C_NODE;
 int heartbeat_time = 0;
 
 HASHMAP(char, int) answer_count_map;
+HASHMAP(char, int) nodes_ping_map;
 rm_list remove_list;
 
 const struct timespec SLEEP_TIME = {SECONDS_SLEEP, MILLISECONDS_SLEEP*1000000L}; // sec nanosec
@@ -67,6 +70,7 @@ int main (void)
     C_NODE.pid = getpid();
     btree_add(&TREE, C_NODE);
     hashmap_init(&answer_count_map, hashmap_hash_string, strcmp);
+    hashmap_init(&nodes_ping_map, hashmap_hash_string, strcmp);
     list_init(&remove_list);
 
     address_shift = 5000;
@@ -310,10 +314,10 @@ bool cmd_heartbeat(int time) {
     printf("OK\n");
     if (heartbeat_time != 0) {
         heartbeat_time = time;
-        return true;
+        return false;
     }
     heartbeat_time = time;
-    return false;
+    return true;
 }
 
 void rec_create(int id, int code, char* answer, int count_answers) {
@@ -327,8 +331,13 @@ void rec_create(int id, int code, char* answer, int count_answers) {
         printf("Error: %s\n", answer);
         btree_remove(&TREE, id);
         kill(created_node.pid, SIGKILL);
-    } else if (code == CODE_OK)
+    } else if (code == CODE_OK) {
+        int *v = malloc(sizeof(int));
+        char* str_id = int_to_str(id);
+        *v = 0;
+        hashmap_put(&nodes_ping_map, str_id, v);
         printf("Ok: %d\n", created_node.pid);
+    }
 }
 
 void rec_remove(char* command, int id, int code, char* answer, int count_answers) {
@@ -369,9 +378,13 @@ void rec_remove(char* command, int id, int code, char* answer, int count_answers
                 free(rs.commands[i]);
             }
             free(rs.commands);
+            char* remove_node_str = int_to_str(rs.remove_node_id);
             waitpid(btree_find(&TREE, rs.remove_node_id).pid, NULL, 0);
+            if (hashmap_get(&nodes_ping_map, remove_node_str) != NULL)
+                hashmap_remove(&nodes_ping_map, remove_node_str);
             btree_remove(&TREE, rs.remove_node_id);
             printf("Ok\n");
+            free(remove_node_str);
         } else
             push_next_remove(rs);
     }
@@ -387,6 +400,10 @@ void rec_exec(int id, int code, char* answer, int count_answers) {
 void push_create(int id, int parent_id, char* main_address, char* ping_address) {
     if (parent_id == C_NODE.id) {
         mqn_connect(&CONTROL_NODE, id, main_address, ping_address);
+#ifdef DEBUG
+        printf("control_node reply OK for command create\n");
+        fflush(stdout);
+#endif
         rec_create(id, CODE_OK, "OK", 0);
         return;
     }
@@ -419,6 +436,10 @@ void push_next_remove(remove_struct rms) { // отправляет следую�
         if (CONTROL_NODE.left_child_id == node_id || CONTROL_NODE.right_child_id == node_id) {
             mqn_close(&CONTROL_NODE, node_id);
             rec_remove(cmd, node_id, CODE_OK, "OK", 0);
+#ifdef DEBUG
+            printf("control_node reply OK for command disconnect\n");
+            fflush(stdout);
+#endif
             return;
         }
         push_message[2] = rms.commands[str_it+1];
@@ -428,6 +449,10 @@ void push_next_remove(remove_struct rms) { // отправляет следую�
         if (strtol(parent_id, NULL, 10) == C_NODE.id) {
             mqn_connect(&CONTROL_NODE, node_id, rms.commands[str_it+3], rms.commands[str_it+4]);
             rec_remove(cmd, node_id, CODE_OK, "OK", 0);
+#ifdef DEBUG
+            printf("control_node reply OK for command connect\n");
+            fflush(stdout);
+#endif
             return;
         }
         push_message[2] = rms.commands[str_it+1];
@@ -438,6 +463,10 @@ void push_next_remove(remove_struct rms) { // отправляет следую�
         char* ping_id = rms.commands[str_it+1];
         if (C_NODE.id == strtol(ping_id, NULL, 10)) {
             rec_remove(cmd, C_NODE.id, CODE_OK, "OK", 0);
+#ifdef DEBUG
+            printf("control_node reply OK for command ping\n");
+            fflush(stdout);
+#endif
             return;
         }
         push_message[2] = ping_id;
@@ -470,74 +499,56 @@ void receive_process(char* message[]) {
         hashmap_remove(&answer_count_map, uuid);
 }
 
+void receive_from_socket(void *socket) {
+    char *message[5] = {NULL, NULL, NULL, NULL, NULL};
+    while (socket) {
+        int size = mqn_receive(socket, message);
+        if (size > 0)
+            receive_process(message);
+        else
+            break;
+    }
+}
 void *receive_worker(void* args) {
-    char* message[5] = {NULL, NULL, NULL, NULL, NULL};
     while (true) {
-        while (CONTROL_NODE.left_child_main_socket) {
-            int size = mqn_receive(CONTROL_NODE.left_child_main_socket, message);
-            if (size > 0)
-                receive_process(message);
-            else
-                break;
-        }
-        while (CONTROL_NODE.right_child_main_socket) {
-            int size = mqn_receive(CONTROL_NODE.right_child_main_socket, message);
-            if (size > 0)
-                receive_process(message);
-            else
-                break;
-        }
+        receive_from_socket(CONTROL_NODE.left_child_main_socket);
+        receive_from_socket(CONTROL_NODE.right_child_main_socket);
         nanosleep(&SLEEP_TIME, NULL);
     }
 }
 
-void *heartbeat_worker(void* args) {
-    HASHMAP(char, int) nodes_map;
-    hashmap_init(&nodes_map, hashmap_hash_string, strcmp);
-    clock_t start = clock();
-    while (heartbeat_time > 0) {
-        for (int i = 0; i < TREE.size; ++i) {
-            char *str_id = int_to_str(TREE.buf[i].id);
-            int *val = hashmap_get(&nodes_map, str_id);
-            if (val == NULL) {
-                val = malloc(sizeof(int));
+void receive_pong_from_socket(void *socket) {
+    char* rec_msg[2] = {NULL, NULL}; // pong node_id
+    while (socket) {
+        int size = mqn_receive(socket, rec_msg);
+        if (size > 0 && !strcmp(rec_msg[0], "pong")) {
+            int *val = hashmap_get(&nodes_ping_map, rec_msg[1]);
+            if (val)
                 *val = 0;
-                hashmap_put(&nodes_map, str_id, val);
-            } else {
-                *val = 0;
-                free(str_id);
-            }
         }
+        else
+            break;
+    }
+}
+void *heartbeat_worker(void* args) {
+    clock_t start;
+    while (heartbeat_time > 0) {
         char* push_msg[2] = {"ping", NULL};
+        int *v;
+        hashmap_foreach_data(v, &nodes_ping_map) {
+            ++(*v);
+        }
         if (CONTROL_NODE.left_child_ping_socket) mqn_push(CONTROL_NODE.left_child_ping_socket, push_msg);
         if (CONTROL_NODE.right_child_ping_socket) mqn_push(CONTROL_NODE.right_child_ping_socket,push_msg);
-        char* rec_msg[2] = {NULL, NULL}; // pong node_id
+        start = clock();
         while (clock() - start < heartbeat_time) {
-            while (CONTROL_NODE.left_child_ping_socket) {
-                int size = mqn_receive(CONTROL_NODE.left_child_ping_socket, rec_msg);
-                if (size > 0 && !strcmp(rec_msg[0], "pong")) {
-                    int *val = hashmap_get(&nodes_map, rec_msg[1]);
-                    if (val)
-                        *val = 0;
-                }
-                else
-                    break;
-            }
-            while (CONTROL_NODE.right_child_ping_socket) {
-                int size = mqn_receive(CONTROL_NODE.right_child_ping_socket, rec_msg);
-                if (size > 0 && !strcmp(rec_msg[0], "pong")) {
-                    int *val = hashmap_get(&nodes_map, rec_msg[1]);
-                    if (val)
-                        *val = 0;
-                }
-                else
-                    break;
-            }
+            receive_pong_from_socket(CONTROL_NODE.left_child_ping_socket);
+            receive_pong_from_socket(CONTROL_NODE.right_child_ping_socket);
             nanosleep(&SLEEP_TIME, NULL);
         }
         const char *map_key;
         int *map_data;
-        hashmap_foreach(map_key, map_data, &nodes_map) {
+        hashmap_foreach(map_key, map_data, &nodes_ping_map) {
             if (*map_data == 4)
                 printf("Heartbeat: node %s is unavailable now\n", map_key);
         }

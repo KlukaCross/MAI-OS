@@ -56,11 +56,14 @@ b_tree_node btree_remove(b_tree *t, int elem_id) {
 
     for (int i = 0; i < t->size; ++i) {
         if (t->buf[i].id == elem_id) {
+            free(t->buf[i].main_address);
+            free(t->buf[i].ping_address);
+            t->buf[i].main_address = NULL;
+            t->buf[i].ping_address = NULL;
             t->buf[i] = r_elem;
             break;
         }
     }
-
     t->size--;
     return r_elem;
 }

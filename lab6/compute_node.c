@@ -9,9 +9,10 @@
 #include "errors/error_handler.h"
 #include "hashmap/include/hashmap.h"
 
-#define MILLISECONDS_SLEEP 100
+#define MILLISECONDS_SLEEP 50
 #define SECONDS_SLEEP 0
-#define DEBUG
+
+//#define DEBUG
 
 void cmd_connect(char* message[], int size_message); // connect node_id parent_id main_address ping_address
 void cmd_remove(char* message[], int size_message); // remove node_id
@@ -25,6 +26,13 @@ mq_node COMPUTE_NODE;
 HASHMAP(char, int) CHI_MAP;
 
 const struct timespec SLEEP_TIME = {SECONDS_SLEEP, MILLISECONDS_SLEEP*1000000L}; // sec nanosec
+
+void clean_buffer(char** buffer) {
+    for (int i = 0; buffer[i]; ++i) {
+        free(buffer[i]);
+        buffer[i] = NULL;
+    }
+}
 
 // prog id main_address ping_address
 int main(int argc, char** argv){
@@ -42,43 +50,44 @@ int main(int argc, char** argv){
 #ifdef DEBUG
     printf("node %s with main_address=%s and ping_address=%s is ready\n", NODE_ID, main_address, ping_address);
 #endif
-    char* receive_buffer[7] = {NULL, NULL, NULL, NULL, NULL, NULL, NULL};
-    char* reply_buffer[6] = {NULL, NULL, NULL, NULL, NULL, NULL};
+    char* buffer[7] = {NULL, NULL, NULL, NULL, NULL, NULL, NULL};
     int size;
     while (1) {
-        size = mqn_receive(COMPUTE_NODE.main_socket, receive_buffer);
+        size = mqn_receive(COMPUTE_NODE.main_socket, buffer);
         if (size > 0) {
-            char* command = receive_buffer[1];
+            char* command = buffer[1];
 #ifdef DEBUG
             printf("node %s receive command %s from parent\n", NODE_ID, command);
             fflush(stdout);
 #endif
             if (!strncmp(command, "exec", 4))
-                cmd_exec(receive_buffer, size);
+                cmd_exec(buffer, size);
             else if (!strncmp(command, "ping", 4))
-                cmd_ping(receive_buffer, size);
+                cmd_ping(buffer, size);
             else if (!strncmp(command, "remove", 6))
-                cmd_remove(receive_buffer, size);
+                cmd_remove(buffer, size);
             else if (!strncmp(command, "connect", 7) || !strncmp(command, "create", 6))
-                cmd_connect(receive_buffer, size);
+                cmd_connect(buffer, size);
             else if (!strncmp(command, "disconnect", 10))
-                cmd_disconnect(receive_buffer, size);
+                cmd_disconnect(buffer, size);
+            clean_buffer(buffer);
         }
-        size = mqn_receive(COMPUTE_NODE.left_child_main_socket, reply_buffer);
+        size = mqn_receive(COMPUTE_NODE.left_child_main_socket, buffer);
         if (size > 0) {
 #ifdef DEBUG
-            printf("node %s receive command %s from node %d\n", NODE_ID, reply_buffer[1], COMPUTE_NODE.left_child_id);
+            printf("node %s receive command %s %s from node %d\n", NODE_ID, reply_buffer[1], reply_buffer[2], COMPUTE_NODE.left_child_id);
             if (reply_buffer[5])
                 printf("ERROR in node %s: last element of reply_buffer must be NULL\n", NODE_ID);
             fflush(stdout);
 #endif
-            mqn_reply(&COMPUTE_NODE, reply_buffer);
+            mqn_reply(&COMPUTE_NODE, buffer);
+            clean_buffer(buffer);
 #ifdef DEBUG
             printf("node %s reply %s for command %s\n", NODE_ID, reply_buffer[4], reply_buffer[1]);
             fflush(stdout);
 #endif
         }
-        size = mqn_receive(COMPUTE_NODE.right_child_main_socket, reply_buffer);
+        size = mqn_receive(COMPUTE_NODE.right_child_main_socket, buffer);
         if (size > 0) {
 #ifdef DEBUG
             printf("node %s receive command %s from node %d\n", NODE_ID, reply_buffer[1], COMPUTE_NODE.right_child_id);
@@ -86,25 +95,31 @@ int main(int argc, char** argv){
                 printf("ERROR in node %s: last element of reply_buffer must be NULL\n", NODE_ID);
             fflush(stdout);
 #endif
-            mqn_reply(&COMPUTE_NODE, reply_buffer);
+            mqn_reply(&COMPUTE_NODE, buffer);
+            clean_buffer(buffer);
 #ifdef DEBUG
             printf("node %s reply %s for command %s\n", NODE_ID, reply_buffer[4], reply_buffer[1]);
             fflush(stdout);
 #endif
         }
-        size = mqn_receive(COMPUTE_NODE.ping_socket, reply_buffer);
+        size = mqn_receive(COMPUTE_NODE.ping_socket, buffer);
         if (size > 0) {
             char* pong_msg[3] = {"pong", NODE_ID, NULL};
-            mqn_reply(&COMPUTE_NODE, pong_msg);
-            if (COMPUTE_NODE.left_child_ping_socket) mqn_push(COMPUTE_NODE.left_child_ping_socket, reply_buffer);
-            if (COMPUTE_NODE.right_child_ping_socket) mqn_push(COMPUTE_NODE.right_child_ping_socket, reply_buffer);
+            mqn_push(COMPUTE_NODE.ping_socket, pong_msg);
+            if (COMPUTE_NODE.left_child_ping_socket) mqn_push(COMPUTE_NODE.left_child_ping_socket, buffer);
+            if (COMPUTE_NODE.right_child_ping_socket) mqn_push(COMPUTE_NODE.right_child_ping_socket, buffer);
+            clean_buffer(buffer);
         }
-        size = mqn_receive(COMPUTE_NODE.left_child_ping_socket, reply_buffer);
-        if (size > 0)
-            mqn_reply(&COMPUTE_NODE, reply_buffer);
-        size = mqn_receive(COMPUTE_NODE.right_child_ping_socket, reply_buffer);
-        if (size > 0)
-            mqn_reply(&COMPUTE_NODE, reply_buffer);
+        size = mqn_receive(COMPUTE_NODE.left_child_ping_socket, buffer);
+        if (size > 0) {
+            mqn_push(COMPUTE_NODE.ping_socket, buffer);
+            clean_buffer(buffer);
+        }
+        size = mqn_receive(COMPUTE_NODE.right_child_ping_socket, buffer);
+        if (size > 0) {
+            mqn_push(COMPUTE_NODE.ping_socket, buffer);
+            clean_buffer(buffer);
+        }
         nanosleep(&SLEEP_TIME, NULL);
     }
     return 0;
@@ -216,7 +231,10 @@ void cmd_exec(char* message[], int size_message) {
             char *value = message[4];
             int *int_value = malloc(sizeof(int));
             *int_value = strtol(value, NULL, 10);
-            int res = hashmap_put(&CHI_MAP, name, int_value);
+            char* k = malloc(strlen(name)+1);
+            memcpy(k, name, strlen(name));
+            k[strlen(name)] = '\0';
+            int res = hashmap_put(&CHI_MAP, k, int_value);
             if (res) {
                 char* answer = (res == -EEXIST)? "already exists" : "unknown error";
                 code = int_to_str(CODE_ERROR_CUSTOM);
