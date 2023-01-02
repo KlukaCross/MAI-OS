@@ -5,11 +5,11 @@
 #include "balanced_tree.h"
 
 typedef struct {
-    b_tree_node removed_node;
-    b_tree_node replacing_with_node;
-    b_tree_node removed_node_left_child;
-    b_tree_node removed_node_right_child;
-    b_tree_node removed_node_parent;
+    int _len_commands;
+    int remove_node_id;
+    char **commands;
+    int number_commands;
+    int now_command;
 } remove_struct;
 
 typedef struct listel listel;

@@ -109,15 +109,15 @@ void mqn_reply(mq_node *m, char* message[]) {
 
 void mqn_close(mq_node *m, int node_id) {
     if (m->left_child_id == node_id) {
-        zmq_close(m->left_child_main_socket);
-        zmq_close(m->left_child_ping_socket);
+        assert(zmq_close(m->left_child_main_socket) == 0);
+        assert(zmq_close(m->left_child_ping_socket) == 0);
         m->left_child_main_socket = NULL;
         m->left_child_ping_socket = NULL;
         m->left_child_id = -1;
     }
     else if (m->right_child_id == node_id) {
-        zmq_close(m->right_child_main_socket);
-        zmq_close(m->right_child_ping_socket);
+        assert(zmq_close(m->right_child_main_socket) == 0);
+        assert(zmq_close(m->right_child_ping_socket) == 0 );
         m->right_child_main_socket = NULL;
         m->right_child_ping_socket = NULL;
         m->right_child_id = -1;
@@ -128,9 +128,11 @@ void mqn_destroy(mq_node *m) {
         mqn_close(m, m->left_child_id);
     if (m->right_child_id != -1)
         mqn_close(m, m->right_child_id);
-    zmq_close(m->main_socket);
-    zmq_close(m->ping_socket);
-    zmq_ctx_destroy (m->context);
+    assert(zmq_close(m->main_socket) == 0);
+    assert(zmq_close(m->ping_socket) == 0);
+    assert(zmq_ctx_destroy (m->context) == 0);
+    free(m->main_socket);
+    free(m->ping_socket);
     m->main_socket = NULL;
     m->ping_socket = NULL;
     m->context = NULL;

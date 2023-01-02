@@ -4,11 +4,13 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <time.h>
+#include <assert.h>
 #include "structures/mq_node.h"
 #include "errors/error_handler.h"
 #include "hashmap/include/hashmap.h"
 
-#define MILLISECONDS_SLEEP 200
+#define MILLISECONDS_SLEEP 100
+#define SECONDS_SLEEP 0
 #define DEBUG
 
 void cmd_connect(char* message[], int size_message); // connect node_id parent_id main_address ping_address
@@ -22,7 +24,7 @@ mq_node COMPUTE_NODE;
 
 HASHMAP(char, int) CHI_MAP;
 
-const struct timespec *SLEEP_TIME = {0, MILLISECONDS_SLEEP*1000000L}; // sec nanosec
+const struct timespec SLEEP_TIME = {SECONDS_SLEEP, MILLISECONDS_SLEEP*1000000L}; // sec nanosec
 
 // prog id main_address ping_address
 int main(int argc, char** argv){
@@ -103,36 +105,41 @@ int main(int argc, char** argv){
         size = mqn_receive(COMPUTE_NODE.right_child_ping_socket, reply_buffer);
         if (size > 0)
             mqn_reply(&COMPUTE_NODE, reply_buffer);
-        nanosleep(SLEEP_TIME, NULL);
+        nanosleep(&SLEEP_TIME, NULL);
     }
     return 0;
 }
 
+char* int_to_str(int a) {
+    char* res = malloc(sizeof(char)*12);
+    sprintf(res, "%d", a);
+    return res;
+}
+
 void reply_not_found(char* uuid, char* command, char* node_id) {
-    char code[12];
-    sprintf(code, "%d", CODE_ERROR_NOT_FOUND);
+    char *code = int_to_str(CODE_ERROR_NOT_FOUND);
     char* mes[6] = {uuid, command, node_id, code, ERROR_NOT_FOUND, NULL};
 #ifdef DEBUG
     printf("node %s reply NOT FOUND for command %s\n", NODE_ID, command);
     fflush(stdout);
 #endif
     mqn_reply(&COMPUTE_NODE, mes);
+    free(code);
 }
 
 void reply_ok(char* uuid, char* command, char* node_id) {
-    char code[12];
-    sprintf(code, "%d", CODE_OK);
+    char *code = int_to_str(CODE_OK);
     char* mes[6] = {uuid, command, node_id, code, "OK", NULL};
 #ifdef DEBUG
     printf("node %s reply OK for command %s\n", NODE_ID, command);
     fflush(stdout);
 #endif
     mqn_reply(&COMPUTE_NODE, mes);
+    free(code);
 }
 
 void push_next(char* message[]) {
     if (COMPUTE_NODE.left_child_main_socket || COMPUTE_NODE.right_child_main_socket) {
-        //printf("%s %s %s %s %s %s", message[0], message[1])
         mqn_push_all(&COMPUTE_NODE, message);
 #ifdef DEBUG
         printf("node %s push command %s to children (left child id = %d)(right child id = %d)\n", NODE_ID, message[1], COMPUTE_NODE.left_child_id, COMPUTE_NODE.right_child_id);
@@ -167,7 +174,15 @@ void cmd_remove(char* message[], int size_message) {
     char *node_id = message[2];
     if (!strcmp(node_id, NODE_ID)) { // это удаляемый узел
         reply_ok(uuid, command, node_id);
+#ifdef DEBUG
+        printf("node %s is being destroyed...\n", NODE_ID);
+        fflush(stdout);
+#endif
         mqn_destroy(&COMPUTE_NODE);
+#ifdef DEBUG
+        printf("node %s was destroyed\n", NODE_ID);
+        fflush(stdout);
+#endif
         exit(0);
     } else  // отправляем команду дальше по дереву
         push_next(message);
@@ -178,22 +193,23 @@ void cmd_exec(char* message[], int size_message) {
     char *node_id = message[2];
     char *name = message[3];
     if (!strcmp(node_id, NODE_ID)) {
-        char code[12];
+        char *code;
         if (size_message == 4) { // get
             int *res = hashmap_get(&CHI_MAP, name);
             if (!res) {
                 char answer[strlen(name)+strlen("not found")+2];
-                sprintf(code, "%d", CODE_ERROR_CUSTOM);
+                answer[0] = '\0';
+                code = int_to_str(CODE_ERROR_CUSTOM);
                 strcat(answer, name);
                 strcat(answer, " not found");
                 char* mes[6] = {uuid, command, node_id, code, answer, NULL};
                 mqn_reply(&COMPUTE_NODE, mes);
             } else {
-                char answer[12];
-                sprintf(code, "%d", CODE_OK);
-                sprintf(answer, "%d", *res);
+                char *answer = int_to_str(*res);
+                code = int_to_str(CODE_OK);
                 char* mes[6] = {uuid, command, node_id, code, answer, NULL};
                 mqn_reply(&COMPUTE_NODE, mes);
+                free(answer);
             }
         }
         else { // set
@@ -201,17 +217,18 @@ void cmd_exec(char* message[], int size_message) {
             int *int_value = malloc(sizeof(int));
             *int_value = strtol(value, NULL, 10);
             int res = hashmap_put(&CHI_MAP, name, int_value);
-            if (res == 0) {
-                char* answer = "unknown error";
-                sprintf(code, "%d", CODE_ERROR_CUSTOM);
+            if (res) {
+                char* answer = (res == -EEXIST)? "already exists" : "unknown error";
+                code = int_to_str(CODE_ERROR_CUSTOM);
                 char* mes[6] = {uuid, command, node_id, code, answer, NULL};
                 mqn_reply(&COMPUTE_NODE, mes);
             } else {
-                sprintf(code, "%d", CODE_OK);
+                code = int_to_str(CODE_OK);
                 char* mes[6] = {uuid, command, node_id, code, "", NULL};
                 mqn_reply(&COMPUTE_NODE, mes);
             }
         }
+        free(code);
     } else
         push_next(message);
 }

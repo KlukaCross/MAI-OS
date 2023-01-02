@@ -93,7 +93,7 @@ b_tree_node btree_get_left(b_tree *t, int elem_id) {
     b_tree_node res = {-1, -1, false};
     for (int i = 0; i < t->size; ++i) {
         if (t->buf[i].id == elem_id) {
-            if (2*i+1 > t->size)
+            if (2*i+1 >= t->size)
                 return res;
             res = t->buf[2*i+1];
             break;
@@ -105,7 +105,7 @@ b_tree_node btree_get_right(b_tree *t, int elem_id) {
     b_tree_node res = {-1, -1, false};
     for (int i = 0; i < t->size; ++i) {
         if (t->buf[i].id == elem_id) {
-            if (2*i+2 > t->size)
+            if (2*i+2 >= t->size)
                 return res;
             res = t->buf[2*i+2];
             break;
