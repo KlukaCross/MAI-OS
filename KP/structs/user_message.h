@@ -5,11 +5,11 @@
 
 class UserMessage {
 public:
-    UserMessage(std::string& from_login, std::string& text, std::time_t timestamp);
+    UserMessage(const std::string& from_login, const std::string& text, std::time_t timestamp, unsigned long id);
     std::string from_login;
     std::string text;
-    std::string to_chat;
     std::time_t timestamp;
+    unsigned long id;
 };
 
 #endif //KP_MESSAGE_H

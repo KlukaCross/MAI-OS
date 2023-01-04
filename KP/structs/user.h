@@ -7,10 +7,8 @@
 
 class User {
 public:
-    User(std::string& login, FifoPipe* pipe_worker);
+    User(const std::string& login);
     std::string login;
-    std::vector<UserMessage> messages;
-    FifoPipe* pipe_worker;
     bool authorized;
 };
 

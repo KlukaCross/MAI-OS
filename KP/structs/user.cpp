@@ -1,7 +1,6 @@
 #include "user.h"
 
-User::User(std::string &login, FifoPipe *pipe_worker) {
+User::User(const std::string &login) {
     this->login = login;
-    this->pipe_worker = pipe_worker;
     this->authorized = true;
 }

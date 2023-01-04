@@ -14,20 +14,20 @@ public:
     void cmd_logout();
     void cmd_join(const std::string& chat_name);
     void cmd_private(const std::string& login);
-    void cmd_create_chat(const std::string& login);
+    void cmd_create_chat(const std::string& chat_name);
     void cmd_push(const std::string& text);
-    void set_main_pipe(const std::string& get_pipe, const std::string& put_pipe);
+    void cmd_chats();
     ClientStates state;
+    std::string last_update_id;
+    void update_chat(const std::string& last_update_id);
 private:
     std::string login;
     std::string chat_name;
-    FifoPipe *authorization_pipe;
-    FifoPipe *main_pipe;
-    std::time_t last_update_timestamp;
-    void loop();
-    void update_group_chat(std::time_t timestamp);
-    void update_private_chat(std::time_t timestamp);
+    FifoPipePut *request_pipe;
+    FifoPipeGet *response_pipe;
+    void receive_loop();
     void answer_handler(const std::string& answer);
+    void request(const std::string& command, const std::string& args);
 };
 
 #endif //KP_CLIENT_H

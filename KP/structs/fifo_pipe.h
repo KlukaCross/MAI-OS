@@ -8,14 +8,22 @@
 
 class FifoPipe {
 public:
-    FifoPipe(const std::string& get_pipe, const std::string& put_pipe);
-    void put_message(const std::string& message);
+    explicit FifoPipe(const std::string& pipe_name);
+    char* pipe_name;
+protected:
+    static bool exists_pipe(const char* pipe_name);
+};
+
+class FifoPipeGet : public FifoPipe {
+public:
+    explicit FifoPipeGet(const std::string& pipe_name);
     std::string get_message();
-    char* get_pipe_name;
-    char* put_pipe_name;
-    ~FifoPipe();
-private:
-    static bool check_pipe(const char* pipe_name);
+};
+
+class FifoPipePut : public FifoPipe {
+public:
+    explicit FifoPipePut(const std::string& pipe_name);
+    void put_message(const std::string& message);
 };
 
 #endif //KP_FIFO_PIPE_H
