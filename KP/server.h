@@ -17,7 +17,7 @@ private:
     std::list<User*> users;
     std::list<GroupChat*> group_chats;
     std::list<PrivateChat*> private_chats;
-    std::list<UserMessage*> messages;
+    std::list<Message*> messages;
     void request_handler(const std::string& request);
     void cmd_login(FifoPipePut answer_pipe, const std::string& login);
     void cmd_logout(User* user);

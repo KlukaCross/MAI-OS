@@ -8,21 +8,21 @@ FifoPipe::FifoPipe(const std::string& pipe_name) {
         mkfifo(this->pipe_name, S_IRWXU | S_IRWXG | S_IRWXO);
 }
 
-void FifoPipePut::put_message(const std::string& message) {
+void FifoPipePut::put_message(const std::string& message, char separator) {
     std::ofstream pipe_out;
     pipe_out.open(this->pipe_name, std::ofstream::out);
-    pipe_out << message;
+    pipe_out << message << separator;
     pipe_out.flush();
     pipe_out.close();
 }
 
 FifoPipePut::FifoPipePut(const std::string &pipe_name) : FifoPipe(pipe_name) {}
 
-std::string FifoPipeGet::get_message() {
+std::string FifoPipeGet::get_message(char separator) {
     std::ifstream pipe_in;
     std::string res;
     pipe_in.open(this->pipe_name, std::ios::in);
-    getline(pipe_in, res);
+    getline(pipe_in, res, separator);
     pipe_in.close();
     return res;
 }

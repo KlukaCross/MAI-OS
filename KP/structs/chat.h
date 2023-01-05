@@ -6,7 +6,7 @@
 
 class Chat {
 public:
-    std::list<UserMessage*> messages;
+    std::list<Message*> messages;
 };
 
 class GroupChat : public Chat {

@@ -17,13 +17,13 @@ protected:
 class FifoPipeGet : public FifoPipe {
 public:
     explicit FifoPipeGet(const std::string& pipe_name);
-    std::string get_message();
+    std::string get_message(char separator);
 };
 
 class FifoPipePut : public FifoPipe {
 public:
     explicit FifoPipePut(const std::string& pipe_name);
-    void put_message(const std::string& message);
+    void put_message(const std::string& message, char separator);
 };
 
 #endif //KP_FIFO_PIPE_H

@@ -17,6 +17,12 @@ public:
     void cmd_create_chat(const std::string& chat_name);
     void cmd_push(const std::string& text);
     void cmd_chats();
+    void rec_login(const std::string& args);
+    void rec_join(const std::string& args);
+    void rec_private(const std::string& args);
+    void rec_create_chat(const std::string& args);
+    void rec_chats(const std::string& args);
+    void rec_get_msg(const std::string& args);
     ClientStates state;
     std::string last_update_id;
     void update_chat(const std::string& last_update_id);

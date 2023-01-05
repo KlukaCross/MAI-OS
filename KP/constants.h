@@ -11,7 +11,12 @@
 #define SECONDS_SLEEP 0
 
 #define NONE_USER_NAME "__NONE"
-#define COMMAND_SEPARATOR '|'
+#define SYSTEM_NAME "SYSTEM"
+#define COMMAND_ARGS_SEPARATOR '|'
+#define COMMAND_SEPARATOR '\n'
+#define MIN_NAME_SIZE 2
+#define MAX_NAME_SIZE 20
+#define MAX_MESSAGE_CHARACTERS 2048
 
 #define CMD_HELP "help"
 #define CMD_LOGIN "login"
