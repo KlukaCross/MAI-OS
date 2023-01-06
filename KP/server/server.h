@@ -2,9 +2,9 @@
 #define KP_SERVER_H
 #include <pthread.h>
 #include <list>
-#include "structs/user.h"
-#include "structs/chat.h"
-#include "structs/fifo_pipe.h"
+#include "../structs/user.h"
+#include "../structs/chat.h"
+#include "../structs/fifo_pipe.h"
 
 class Server {
 public:

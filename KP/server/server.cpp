@@ -1,17 +1,8 @@
 #include <iostream>
-#include <signal.h>
-#include "constants.h"
+#include "../constants.h"
 #include "server.h"
-#include "funcs/string_parser.h"
+#include "../funcs/string_parser.h"
 #include <uuid/uuid.h>
-
-int main() {
-    auto *server = new Server();
-    signal(SIGPIPE, SIG_IGN);
-    server->start();
-    delete server;
-    return 0;
-}
 
 const struct timespec SLEEP_TIME = {SECONDS_SLEEP, MILLISECONDS_SLEEP*1000000L}; // sec nanosec
 
@@ -32,13 +23,7 @@ void Server::loop() {
     while (true) {
         std::string request;
         request = this->request_pipe->get_message(COMMAND_SEPARATOR);
-        /*
-        if (request.empty()) {
-            nanosleep(&SLEEP_TIME, nullptr);
-            continue;
-        }
-         */
-        std::cout << "get request " << request << std::endl;
+        std::cout << "get " << request << std::endl;
         request_handler(request);
     }
 }
@@ -202,6 +187,7 @@ void Server::response(FifoPipePut answer_pipe, const std::string &cmd, const std
     if (!answer.empty())
         ans += COMMAND_ARGS_SEPARATOR;
     ans += answer;
+    std::cout << "push " << cmd + COMMAND_ARGS_SEPARATOR + status + ans << std::endl;
     answer_pipe.put_message(cmd + COMMAND_ARGS_SEPARATOR + status + ans, COMMAND_SEPARATOR);
 }
 
@@ -216,7 +202,7 @@ User *Server::find_user(const std::string &user_login) {
 
 void Server::cmd_get_msg(FifoPipePut answer_pipe, User *user, const std::string &mode, const std::string &name, const std::string &last_id) {
     std::list<Message*> *msgs = nullptr;
-    if (mode == ARG_GROUP) {
+    if (mode == CMD_ARG_GROUP) {
         GroupChat *chat = nullptr;
         for (auto &c: this->group_chats) {
             if (c->name == name) {
@@ -229,7 +215,7 @@ void Server::cmd_get_msg(FifoPipePut answer_pipe, User *user, const std::string 
             return;
         }
         msgs = &chat->messages;
-    } else if (mode == ARG_PRIVATE) {
+    } else if (mode == CMD_ARG_PRIVATE) {
         PrivateChat *chat = nullptr;
         for (auto &c: this->private_chats) {
             if ((c->user1 == user && c->user2->login == name) || (
@@ -261,7 +247,7 @@ void Server::cmd_get_msg(FifoPipePut answer_pipe, User *user, const std::string 
 
 void Server::cmd_put_msg(FifoPipePut answer_pipe, User *user, const std::string &mode, const std::string &name, const std::string &text) {
     std::list<Message*> *msgs = nullptr;
-    if (mode == ARG_GROUP) {
+    if (mode == CMD_ARG_GROUP) {
         GroupChat *chat = nullptr;
         for (auto &c: this->group_chats) {
             if (c->name == name) {
@@ -274,7 +260,7 @@ void Server::cmd_put_msg(FifoPipePut answer_pipe, User *user, const std::string 
             return;
         }
         msgs = &chat->messages;
-    } else if (mode == ARG_PRIVATE) {
+    } else if (mode == CMD_ARG_PRIVATE) {
         PrivateChat *chat = nullptr;
         for (auto &c: this->private_chats) {
             if (c->user1 == user || c->user2 == user) {
@@ -296,17 +282,19 @@ void Server::cmd_put_msg(FifoPipePut answer_pipe, User *user, const std::string 
 }
 
 void Server::cmd_chats(FifoPipePut answer_pipe, User *user) {
-    std::string answer;
+    // sort by last message id
+    std::vector<std::pair<int, std::string>> vec;
     for (auto &c: this->private_chats) {
         std::string other_name;
         if (c->user1 == user)
             other_name = c->user2->login;
         if (c->user2 == user)
             other_name = c->user1->login;
-        if (!other_name.empty())
-            answer += other_name + COMMAND_ARGS_SEPARATOR + ((c->messages.empty())? "" : c->messages.back()->from_login) +
-                                   COMMAND_ARGS_SEPARATOR + ((c->messages.empty())? "" : c->messages.back()->text) +
-                                   COMMAND_ARGS_SEPARATOR;
+        if (!other_name.empty() && !c->messages.empty()) {
+            std::string text = std::string(CMD_ARG_PRIVATE) + COMMAND_ARGS_SEPARATOR + other_name + COMMAND_ARGS_SEPARATOR + c->messages.back()->from_login +
+                               COMMAND_ARGS_SEPARATOR + c->messages.back()->text + COMMAND_ARGS_SEPARATOR;
+            vec.push_back(std::pair(-c->messages.back()->id, text));
+        }
     }
     for (auto &c: this->group_chats) {
         bool fl = false;
@@ -316,10 +304,16 @@ void Server::cmd_chats(FifoPipePut answer_pipe, User *user) {
                 break;
             }
         }
-        if (fl)
-            answer += c->name + COMMAND_ARGS_SEPARATOR + ((c->messages.empty())? "" : c->messages.back()->from_login) +
-                                COMMAND_ARGS_SEPARATOR + ((c->messages.empty())? "" : c->messages.back()->text) +
-                                COMMAND_ARGS_SEPARATOR;
+        if (fl && !c->messages.empty()) {
+            std::string text = std::string(CMD_ARG_GROUP) + COMMAND_ARGS_SEPARATOR + c->name + COMMAND_ARGS_SEPARATOR + c->messages.back()->from_login +
+                               COMMAND_ARGS_SEPARATOR + c->messages.back()->text + COMMAND_ARGS_SEPARATOR;
+            vec.push_back(std::pair(-c->messages.back()->id, text));
+        }
+    }
+    std::string answer;
+    std::sort(vec.begin(), vec.end());
+    for (auto &p: vec) {
+        answer += p.second;
     }
     if (!answer.empty())
         answer = answer.substr(0, answer.size()-1);
